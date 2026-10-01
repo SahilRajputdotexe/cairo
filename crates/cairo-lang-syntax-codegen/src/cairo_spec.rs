@@ -184,9 +184,16 @@ pub fn get_spec() -> Vec<Node> {
         .add_struct(
             StructBuilder::new("MatchArm")
                 .node("patterns", "PatternListOr")
+                .node("guard_clause", "OptionMatchGuardClause")
                 .node("arrow", "TerminalMatchArrow")
                 .node("expression", "Expr"),
         )
+        .add_struct(
+            StructBuilder::new("MatchGuardClause")
+                .node("if_kw", "TerminalIf")
+                .node("condition", "Expr"),
+        )
+        .add_option("MatchGuardClause")
         .add_struct(
             StructBuilder::new("ExprIf")
                 .node("if_kw", "TerminalIf")

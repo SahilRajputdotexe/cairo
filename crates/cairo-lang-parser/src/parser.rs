@@ -2583,9 +2583,40 @@ impl<'a, 'mt> Parser<'a, 'mt> {
 
         let pattern_list_green = PatternListOr::new_green(self.db, &pattern_list);
 
+        let guard_clause = if self.peek().kind == SyntaxKind::TerminalIf {
+            let if_kw = self.take::<TerminalIf<'_>>();
+            let condition = if self.peek().kind == SyntaxKind::TerminalLet {
+                self.skip_let_in_match_guard();
+                Expr::missing(self.db)
+            } else {
+                let condition = self.parse_expr_limited(
+                    MAX_PRECEDENCE,
+                    LbraceAllowed::Allow,
+                    AndLetBehavior::Stop,
+                );
+                if self.peek().kind == SyntaxKind::TerminalAndAnd {
+                    self.skip_let_in_match_guard();
+                }
+                condition
+            };
+            MatchGuardClause::new_green(self.db, if_kw, condition).into()
+        } else {
+            OptionMatchGuardClauseEmpty::new_green(self.db).into()
+        };
+
         let arrow = self.parse_token::<TerminalMatchArrow<'_>>();
         let expr = self.parse_expr();
-        Ok(MatchArm::new_green(self.db, pattern_list_green, arrow, expr))
+        Ok(MatchArm::new_green(self.db, pattern_list_green, guard_clause, arrow, expr))
+    }
+
+    /// Skips a `let` condition in a match arm guard, which is not supported, up to the arrow of
+    /// the arm.
+    fn skip_let_in_match_guard(&mut self) {
+        if let Err(SkippedError(span)) =
+            self.skip_until(is_of_kind!(match_arrow, rbrace, module_item_kw))
+        {
+            self.add_diagnostic(ParserDiagnosticKind::LetInMatchGuard, span);
+        }
     }
 
     /// Returns a GreenId of a node with some Pattern kind (see

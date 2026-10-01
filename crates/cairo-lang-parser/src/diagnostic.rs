@@ -128,6 +128,7 @@ pub enum ParserDiagnosticKind {
     ExpectedSemicolonOrBody,
     LowPrecedenceOperatorInIfLet { op: SyntaxKind },
     MissingMacroRepetitionOperator,
+    LetInMatchGuard,
 }
 
 impl<'a> DiagnosticEntry<'a> for ParserDiagnostic<'a> {
@@ -244,6 +245,9 @@ Did you mean to write `{identifier}!{left}...{right}'?",
                 "Missing macro repetition operator. Expected `?`, `+`, or `*` after `$(...)`."
                     .to_string()
             }
+            ParserDiagnosticKind::LetInMatchGuard => {
+                "`let` is not supported in match arm guards.".to_string()
+            }
         }
     }
 
@@ -285,6 +289,7 @@ Did you mean to write `{identifier}!{left}...{right}'?",
             ParserDiagnosticKind::ExpectedSemicolonOrBody => error_code!(E1029),
             ParserDiagnosticKind::LowPrecedenceOperatorInIfLet { .. } => error_code!(E1030),
             ParserDiagnosticKind::MissingMacroRepetitionOperator => error_code!(E1031),
+            ParserDiagnosticKind::LetInMatchGuard => error_code!(E1032),
         })
     }
 
