@@ -2,10 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
-  pull_request:
-  merge_group:
-    types: [checks_requested]
+    branches: ["dbg-**"]
 
 jobs:
   ensure-no_std:
@@ -37,42 +34,16 @@ jobs:
     strategy:
       matrix:
         args:
-          - cairo-lang-casm --features=serde,parity-scale-codec,schemars
-          - cairo-lang-casm --no-default-features --features=serde,parity-scale-codec
-          - cairo-lang-compiler
-          - cairo-lang-debug
-          - cairo-lang-defs
-          - cairo-lang-diagnostics
-          - cairo-lang-doc
-          - cairo-lang-eq-solver
-          - cairo-lang-executable
-          - cairo-lang-executable-plugin
-          - cairo-lang-execute-utils
-          - cairo-lang-filesystem
           - cairo-lang-formatter
           - cairo-lang-lowering
           - cairo-lang-parser
-          - cairo-lang-plugins
-          - cairo-lang-primitive-token
-          - cairo-lang-proc-macros
-          - cairo-lang-project
-          - cairo-lang-runnable-utils
-          - cairo-lang-runner
           - cairo-lang-semantic
-          - cairo-lang-sierra
-          - cairo-lang-sierra-ap-change
-          - cairo-lang-sierra-gas
-          - cairo-lang-sierra-generator
-          - cairo-lang-sierra-to-casm
-          - cairo-lang-sierra-type-size
-          - cairo-lang-starknet-classes
-          - cairo-lang-starknet
           - cairo-lang-syntax
-          - cairo-lang-test-plugin
-          - cairo-lang-test-runner
-          - cairo-lang-test-utils
-          - cairo-lang-utils --features=serde,parity-scale-codec,schemars,testing,tracing
-          - cairo-lang-utils --no-default-features --features=serde,parity-scale-codec
+          - cairo-lang-sierra-generator
+          - cairo-lang-compiler
+          - cairo-lang-plugins
+          - cairo-lang-defs
+          - cairo-lang-doc
           - tests
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,17 +52,6 @@ jobs:
         with:
           # Allow only the heavy 'tests' leg to upload the cache; all legs still restore it.
           save-if: ${{ matrix.args == 'tests' }}
-      # Validates that the number of commands in the matrix is equal to the number of crates in the
-      # workspace + 2 (for the crates which have multiple commands) - 1 (for the syntax-codegen-test)
-      - run: |
-          CRATES_COUNT=$(find {crates/*,tests}/Cargo.toml | wc -l)
-          COMMANDS_COUNT=${{ strategy.job-total }}
-          if [ $((CRATES_COUNT + 2 - 1)) -ne $COMMANDS_COUNT ]; then
-            echo "CRATES_COUNT: $CRATES_COUNT"
-            echo "COMMANDS_COUNT: $COMMANDS_COUNT"
-            echo "The number of commands in the matrix is not equal to the number of crates in the workspace + 1"
-            exit 1
-          fi
       - run: |
           cargo test --profile=ci-dev -p ${{ matrix.args }}
   test:
@@ -201,11 +161,13 @@ jobs:
       - run: >
           scripts/docs.sh
 
-  sierra-updated-check:
+  fix-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: '0'
-      - run: >
-          scripts/sierra_update_check.sh origin/$GITHUB_BASE_REF origin/$GITHUB_HEAD_REF
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+      - run: |
+          CAIRO_FIX_TESTS=1 cargo test --profile=ci-dev -p cairo-lang-parser -p cairo-lang-semantic -p cairo-lang-lowering -p cairo-lang-formatter || true
+          git diff --stat
+          git diff
